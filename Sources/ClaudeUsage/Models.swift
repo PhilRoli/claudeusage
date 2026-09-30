@@ -10,6 +10,18 @@ struct Limits: Equatable {
     var sevenDay: LimitWindow?
 }
 
+extension Limits {
+    /// Drops windows whose reset time has passed: their utilization is out of date.
+    func current(at now: Date) -> Limits {
+        func live(_ w: LimitWindow?) -> LimitWindow? {
+            guard let w else { return nil }
+            if let r = w.resetsAt, r <= now { return nil }
+            return w
+        }
+        return Limits(fiveHour: live(fiveHour), sevenDay: live(sevenDay))
+    }
+}
+
 struct OAuthToken: Equatable {
     let accessToken: String
     let expiresAt: Date?
@@ -73,7 +85,7 @@ struct LocalStats: Equatable {
 
 enum LimitsStatus: Equatable {
     case ok
-    case stale
+    case stale(String)
     case unavailable(String)
 }
 

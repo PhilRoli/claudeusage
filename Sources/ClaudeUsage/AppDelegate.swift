@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if prefs == nil {
             prefs = PreferencesWindowController(config: config) { [weak self] in
                 guard let self else { return }
-                self.fetcher.start(interval: self.config.refreshInterval)
+                self.fetcher.start(interval: self.config.refreshInterval, immediate: false)
                 self.statusBar.render(self.fetcher.snapshot)
             }
         }

@@ -24,6 +24,7 @@ final class PreferencesWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         super.init(window: window)
         build()
+        window.center()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -42,10 +43,10 @@ final class PreferencesWindowController: NSWindowController {
             control.target = self
             control.action = #selector(changed)
         }
-        for check in [notifyCheck, loginCheck] {
-            check.target = self
-            check.action = #selector(changed)
-        }
+        notifyCheck.target = self
+        notifyCheck.action = #selector(changed)
+        loginCheck.target = self
+        loginCheck.action = #selector(loginChanged)
 
         let stack = NSStackView(views: [
             row("Refresh every", intervalPopup),
@@ -74,7 +75,11 @@ final class PreferencesWindowController: NSWindowController {
         config.warnThreshold = warns[warnPopup.indexOfSelectedItem]
         config.criticalThreshold = criticals[criticalPopup.indexOfSelectedItem]
         config.notificationsEnabled = notifyCheck.state == .on
-        try? LoginItem.set(loginCheck.state == .on)
         onChange()
+    }
+
+    @objc private func loginChanged() {
+        do { try LoginItem.set(loginCheck.state == .on) } catch { NSSound.beep() }
+        loginCheck.state = LoginItem.isEnabled ? .on : .off // reflect what the system actually accepted
     }
 }

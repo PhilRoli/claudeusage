@@ -23,6 +23,8 @@ actor LocalUsageScanner {
             if now.timeIntervalSince(mtime) > maxAge { continue }
             ingest(url)
         }
+        let cutoff = now.addingTimeInterval(-maxAge)
+        records = records.filter { $0.value.timestamp >= cutoff }
         return Array(records.values)
     }
 

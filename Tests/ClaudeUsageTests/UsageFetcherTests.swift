@@ -53,6 +53,48 @@ final class UsageFetcherTests: XCTestCase {
         XCTAssertEqual(f.snapshot.status, .unavailable("Allow Keychain access"))
     }
 
+    final class SlowClient: LimitsFetching {
+        var calls = 0
+        let limits: Limits
+        init(_ l: Limits) { limits = l }
+        func fetchLimits(accessToken: String) async throws -> Limits {
+            calls += 1
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            return limits
+        }
+    }
+
+    final class ScriptedClient: LimitsFetching {
+        var results: [Result<Limits, Error>]
+        var calls = 0
+        init(_ r: [Result<Limits, Error>]) { results = r }
+        func fetchLimits(accessToken: String) async throws -> Limits {
+            defer { calls += 1 }
+            return try results[min(calls, results.count - 1)].get()
+        }
+    }
+
+    func testConcurrentRefreshesAreCoalesced() async {
+        let client = SlowClient(limits)
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]), client: client,
+                             scanner: LocalUsageScanner(root: emptyDir), now: { Date() })
+        async let a: Void = f.refresh()
+        async let b: Void = f.refresh()
+        _ = await (a, b)
+        XCTAssertEqual(client.calls, 1)
+        XCTAssertEqual(f.snapshot.limits, limits)
+    }
+
+    func testCancelledRequestsAreNotCountedAsFailures() async {
+        let client = ScriptedClient([.success(limits), .failure(CancellationError()),
+                                     .failure(URLError(.cancelled)), .failure(CancellationError())])
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]), client: client,
+                             scanner: LocalUsageScanner(root: emptyDir), now: { Date() })
+        for _ in 0..<4 { await f.refresh() }
+        XCTAssertEqual(f.snapshot.status, .ok)
+        XCTAssertEqual(f.snapshot.limits, limits)
+    }
+
     private func make(tokens: TokenProviding, client: FakeClient) -> UsageFetcher {
         UsageFetcher(tokens: tokens, client: client, scanner: LocalUsageScanner(root: emptyDir), now: { Date() })
     }
@@ -100,7 +142,7 @@ final class UsageFetcherTests: XCTestCase {
         XCTAssertEqual(f.snapshot.status, .ok)
         await f.refresh()
         XCTAssertEqual(f.snapshot.limits, limits)
-        XCTAssertEqual(f.snapshot.status, .stale)
+        XCTAssertEqual(f.snapshot.status, .stale("Usage endpoint unavailable"))
     }
 
     func testFailureWithNoPriorLimitsIsUnavailable() async {

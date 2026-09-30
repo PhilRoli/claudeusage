@@ -8,6 +8,7 @@ final class UsageFetcher {
     private let now: () -> Date
     private var lastLimits: Limits?
     private var failures = 0
+    private var isRefreshing = false
     private var task: Task<Void, Never>?
 
     var onUpdate: ((UsageSnapshot) -> Void)?
@@ -23,33 +24,49 @@ final class UsageFetcher {
     }
 
     func refresh() async {
-        let at = now()
-        let records = await scanner.scan(now: at)
-        let local = LocalStats.compute(records: records, now: at)
+        guard !isRefreshing else { return } // timer and "Refresh now" must not overlap
+        isRefreshing = true
+        defer { isRefreshing = false }
 
-        var status: LimitsStatus
+        let at = now()
+        async let localStats = Self.loadLocal(scanner: scanner, at: at)
+        var failure: Error?
         do {
             lastLimits = try await loadLimits()
             failures = 0
-            status = .ok
         } catch {
+            failure = error
+        }
+        let local = await localStats
+
+        var status = LimitsStatus.ok
+        if let failure {
+            if Self.isCancellation(failure) { return }
             failures += 1
+            let message = Self.message(for: failure)
             if lastLimits != nil {
-                status = failures >= 2 ? .stale : .ok
+                status = failures >= 2 ? .stale(message) : .ok
             } else {
-                status = .unavailable(Self.message(for: error))
+                status = .unavailable(message)
             }
         }
         snapshot = UsageSnapshot(limits: lastLimits, status: status, local: local, updatedAt: at)
         onUpdate?(snapshot)
     }
 
-    func start(interval: TimeInterval) {
+    /// `immediate: false` keeps an in-flight refresh and just changes the cadence (used by Preferences).
+    func start(interval: TimeInterval, immediate: Bool = true) {
         task?.cancel()
         task = Task { [weak self] in
+            var skipSleep = immediate
             while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                if !skipSleep {
+                    try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                    if Task.isCancelled { break }
+                }
+                skipSleep = false
+                // Unstructured so cancelling the loop doesn't cancel a request already in flight.
+                await Task { await self?.refresh() }.value
             }
         }
     }
@@ -77,6 +94,15 @@ final class UsageFetcher {
                 cont.resume(with: Result { try provider.token() })
             }
         }
+    }
+
+    nonisolated private static func loadLocal(scanner: LocalUsageScanner, at: Date) async -> LocalStats {
+        let records = await scanner.scan(now: at)
+        return await Task.detached { LocalStats.compute(records: records, now: at) }.value
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     private static func message(for error: Error) -> String {

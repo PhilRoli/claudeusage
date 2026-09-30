@@ -21,11 +21,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     func render(_ snapshot: UsageSnapshot) {
         self.snapshot = snapshot
-        let peak = [snapshot.limits?.fiveHour, snapshot.limits?.sevenDay].compactMap { $0?.utilization }.max() ?? 0
+        let limits = snapshot.limits?.current(at: Date())
+        let peak = [limits?.fiveHour, limits?.sevenDay].compactMap { $0?.utilization }.max() ?? 0
         let color: NSColor = peak >= config.criticalThreshold ? .systemRed
             : peak >= config.warnThreshold ? .systemOrange : .labelColor
-        var title = Format.title(snapshot.limits)
-        if snapshot.status == .stale { title += "*" }
+        var title = Format.title(limits)
+        if case .stale = snapshot.status { title += "*" }
         item.button?.attributedTitle = NSAttributedString(string: title, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
             .foregroundColor: color,
@@ -39,11 +40,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         switch snapshot.status {
         case .unavailable(let msg): menu.addItem(text("⚠︎ \(msg)"))
-        case .stale: menu.addItem(text("⚠︎ Showing last known values"))
+        case .stale(let msg): menu.addItem(text("⚠︎ Last known values — \(msg)"))
         case .ok: break
         }
-        menu.addItem(text(Format.limitLine("Session (5h)", snapshot.limits?.fiveHour, now: now)))
-        menu.addItem(text(Format.limitLine("Weekly      ", snapshot.limits?.sevenDay, now: now)))
+        let limits = snapshot.limits?.current(at: now)
+        menu.addItem(text(Format.limitLine("Session (5h)", limits?.fiveHour, now: now)))
+        menu.addItem(text(Format.limitLine("Weekly      ", limits?.sevenDay, now: now)))
         menu.addItem(.separator())
 
         menu.addItem(text(Format.bucketLine("Today", snapshot.local.today)))

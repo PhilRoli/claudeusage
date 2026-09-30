@@ -74,6 +74,24 @@ final class LocalUsageScannerTests: XCTestCase {
         XCTAssertEqual(Set(records.map(\.key)), ["m1:req1", "m2:req1", "m3:req1"])
     }
 
+    func testRecordsOlderThanMaxAgeAreDroppedEvenInFreshFiles() async {
+        write("a.jsonl", [line(id: "old", out: 1, ts: "2026-07-01T10:00:00.000Z"),
+                          line(id: "new", out: 2, ts: "2026-09-29T10:00:00.000Z")])
+        let now = DateParsing.parse("2026-09-30T12:00:00Z")!
+        let records = await LocalUsageScanner(root: dir).scan(now: now)
+        XCTAssertEqual(records.map(\.key), ["new:req1"])
+    }
+
+    func testSameMessageAcrossFilesAndScansKeepsLargest() async {
+        write("a.jsonl", [line(id: "m1", out: 10)])
+        let scanner = LocalUsageScanner(root: dir)
+        _ = await scanner.scan()
+        write("b.jsonl", [line(id: "m1", out: 70)])
+        let records = await scanner.scan()
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records[0].tokens.output, 70)
+    }
+
     func testIgnoresFilesOlderThanMaxAge() async {
         write("old.jsonl", [line(id: "old", out: 1)])
         let old = Date().addingTimeInterval(-40 * 86400)

@@ -20,6 +20,15 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.countdown(to: now.addingTimeInterval(-5), now: now), "now")
     }
 
+    func testCurrentDropsWindowsThatAlreadyReset() {
+        let l = Limits(fiveHour: LimitWindow(utilization: 95, resetsAt: now.addingTimeInterval(-1)),
+                       sevenDay: LimitWindow(utilization: 10, resetsAt: now.addingTimeInterval(60)))
+        XCTAssertNil(l.current(at: now).fiveHour)
+        XCTAssertEqual(l.current(at: now).sevenDay?.utilization, 10)
+        let open = Limits(fiveHour: LimitWindow(utilization: 5, resetsAt: nil), sevenDay: nil)
+        XCTAssertEqual(open.current(at: now).fiveHour?.utilization, 5)
+    }
+
     func testTokens() {
         XCTAssertEqual(Format.tokens(512), "512")
         XCTAssertEqual(Format.tokens(34_500), "34.5K")
