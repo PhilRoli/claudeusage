@@ -60,18 +60,29 @@ final class UsageFetcher {
     }
 
     private func loadLimits() async throws -> Limits {
-        var token = try tokens.token()
+        var token = try await readToken()
         do {
             return try await client.fetchLimits(accessToken: token.accessToken)
         } catch UsageError.unauthorized {
-            token = try tokens.token() // Claude Code may have refreshed it meanwhile
+            token = try await readToken() // Claude Code may have refreshed it meanwhile
             return try await client.fetchLimits(accessToken: token.accessToken)
+        }
+    }
+
+    /// The Keychain read blocks (and can sit behind a system prompt), so keep it off the main actor.
+    private func readToken() async throws -> OAuthToken {
+        let provider = tokens
+        return try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .utility).async {
+                cont.resume(with: Result { try provider.token() })
+            }
         }
     }
 
     private static func message(for error: Error) -> String {
         switch error {
         case TokenError.notFound: return "Sign in to Claude Code"
+        case TokenError.denied: return "Allow Keychain access"
         case TokenError.expired: return "Open Claude Code to refresh login"
         case TokenError.unreadable: return "Can't read Claude Code credentials"
         case UsageError.unauthorized: return "Claude login was rejected"

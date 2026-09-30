@@ -25,6 +25,12 @@ final class KeychainTokenReaderTests: XCTestCase {
         }
     }
 
+    func testExitStatusMapsNotFoundVersusDenied() {
+        XCTAssertEqual(KeychainTokenReader.error(forExitStatus: 44), .notFound)
+        XCTAssertEqual(KeychainTokenReader.error(forExitStatus: 51), .denied)
+        XCTAssertEqual(KeychainTokenReader.error(forExitStatus: 128), .denied)
+    }
+
     func testMissingTokenOrBadJSONThrowsUnreadable() {
         XCTAssertThrowsError(try KeychainTokenReader.parse(blob(expiresAtMs: nil, token: nil), now: now)) {
             XCTAssertEqual($0 as? TokenError, .unreadable)

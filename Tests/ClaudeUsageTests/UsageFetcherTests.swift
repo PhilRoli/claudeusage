@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class UsageFetcherTests: XCTestCase {
-    final class FakeTokens: TokenProviding {
+    final class FakeTokens: TokenProviding, @unchecked Sendable {
         var results: [Result<OAuthToken, TokenError>]
         var calls = 0
         init(_ r: [Result<OAuthToken, TokenError>]) { results = r }
@@ -32,7 +32,28 @@ final class UsageFetcherTests: XCTestCase {
         return u
     }
 
-    private func make(tokens: FakeTokens, client: FakeClient) -> UsageFetcher {
+    final class ThreadRecordingTokens: TokenProviding, @unchecked Sendable {
+        var calledOnMain: Bool?
+        func token() throws -> OAuthToken {
+            calledOnMain = Thread.isMainThread
+            return OAuthToken(accessToken: "t", expiresAt: nil)
+        }
+    }
+
+    func testTokenReadHappensOffMainThread() async {
+        let tokens = ThreadRecordingTokens()
+        let f = make(tokens: tokens, client: FakeClient([.success(limits)]))
+        await f.refresh()
+        XCTAssertEqual(tokens.calledOnMain, false)
+    }
+
+    func testDeniedKeychainAccessMessage() async {
+        let f = make(tokens: FakeTokens([.failure(.denied)]), client: FakeClient([.success(limits)]))
+        await f.refresh()
+        XCTAssertEqual(f.snapshot.status, .unavailable("Allow Keychain access"))
+    }
+
+    private func make(tokens: TokenProviding, client: FakeClient) -> UsageFetcher {
         UsageFetcher(tokens: tokens, client: client, scanner: LocalUsageScanner(root: emptyDir), now: { Date() })
     }
 

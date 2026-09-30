@@ -2,11 +2,13 @@ import Foundation
 
 enum TokenError: Error, Equatable {
     case notFound
+    case denied
     case unreadable
     case expired
 }
 
-protocol TokenProviding {
+/// Blocking by design; `UsageFetcher` calls it off the main actor.
+protocol TokenProviding: Sendable {
     func token() throws -> OAuthToken
 }
 
@@ -24,8 +26,13 @@ struct KeychainTokenReader: TokenProviding {
         do { try p.run() } catch { throw TokenError.notFound }
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        guard p.terminationStatus == 0 else { throw TokenError.notFound }
+        guard p.terminationStatus == 0 else { throw Self.error(forExitStatus: p.terminationStatus) }
         return try Self.parse(data)
+    }
+
+    /// `security` exits 44 for errSecItemNotFound; any other failure (user denied, locked keychain) is access trouble.
+    static func error(forExitStatus status: Int32) -> TokenError {
+        status == 44 ? .notFound : .denied
     }
 
     static func parse(_ data: Data, now: Date = Date()) throws -> OAuthToken {

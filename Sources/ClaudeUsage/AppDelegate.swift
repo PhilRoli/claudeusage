@@ -4,7 +4,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let config = AppConfig.shared
     private let notifier = NotificationManager()
-    private var thresholds = ThresholdTracker()
+    private var thresholds = ThresholdTracker(defaults: .standard)
     private var fetcher: UsageFetcher!
     private var statusBar: StatusBarController!
     private var prefs: PreferencesWindowController?
@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         for (id, name, window) in windows {
             guard let window else { continue }
-            let key = "\(id):\(window.resetsAt?.timeIntervalSince1970 ?? 0)"
+            let key = ThresholdTracker.windowKey(id: id, resetsAt: window.resetsAt)
             let crossed = thresholds.newCrossings(
                 windowKey: key, utilization: window.utilization,
                 thresholds: [config.warnThreshold, config.criticalThreshold])
