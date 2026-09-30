@@ -4,7 +4,8 @@ import AppKit
 final class StatusBarController: NSObject, NSMenuDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let config: AppConfig
-    private var snapshot = UsageSnapshot(limits: nil, status: .unavailable("Loading…"), local: .empty, updatedAt: Date())
+    private var snapshot = UsageSnapshot(
+        limits: nil, status: .unavailable("Loading…"), local: .empty, updatedAt: Date())
     private let mono = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
 
     var onRefresh: () -> Void = {}
@@ -29,7 +30,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if case .stale = snapshot.status { title += "*" }
         item.button?.attributedTitle = NSAttributedString(string: title, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
-            .foregroundColor: color,
+            .foregroundColor: color
         ])
     }
 

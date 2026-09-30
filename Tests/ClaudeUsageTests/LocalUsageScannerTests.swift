@@ -16,12 +16,18 @@ final class LocalUsageScannerTests: XCTestCase {
     private func line(id: String, req: String = "req1", out: Int, model: String = "claude-sonnet-5",
                       ts: String = "2026-09-30T10:00:00.000Z", cwd: String = "/Users/p/proj") -> String {
         """
-        {"timestamp":"\(ts)","requestId":"\(req)","cwd":"\(cwd)","message":{"id":"\(id)","model":"\(model)","usage":{"input_tokens":2,"output_tokens":\(out),"cache_read_input_tokens":100,"cache_creation_input_tokens":50,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":50}}}}
+        {"timestamp":"\(ts)","requestId":"\(req)","cwd":"\(cwd)","message"\
+        :{"id":"\(id)","model":"\(model)",\
+        "usage":{"input_tokens":2,"output_tokens":\(out),\
+        "cache_read_input_tokens":100,\
+        "cache_creation_input_tokens":50,\
+        "cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":50}}}}
         """
     }
 
     private func write(_ name: String, _ lines: [String], trailingNewline: Bool = true) {
         let s = lines.joined(separator: "\n") + (trailingNewline ? "\n" : "")
+        // swiftlint:disable:next force_try
         try! s.write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
     }
 
@@ -95,6 +101,7 @@ final class LocalUsageScannerTests: XCTestCase {
     func testIgnoresFilesOlderThanMaxAge() async {
         write("old.jsonl", [line(id: "old", out: 1)])
         let old = Date().addingTimeInterval(-40 * 86400)
+        // swiftlint:disable:next force_try
         try! FileManager.default.setAttributes([.modificationDate: old],
                                                ofItemAtPath: dir.appendingPathComponent("old.jsonl").path)
         let records = await LocalUsageScanner(root: dir).scan()
@@ -113,7 +120,7 @@ final class LocalUsageScannerTests: XCTestCase {
             rec("1", "2026-09-30T08:00:00Z"),
             rec("2", "2026-09-27T08:00:00Z", project: "b"),
             rec("3", "2026-09-05T08:00:00Z", model: "mystery-1"),
-            rec("4", "2026-08-01T08:00:00Z"),
+            rec("4", "2026-08-01T08:00:00Z")
         ]
         let s = LocalStats.compute(records: records, now: now, calendar: cal)
         XCTAssertEqual(s.today.tokens.total, 10)

@@ -1,0 +1,8 @@
+excluded:
+  - .build
+
+disabled_rules:
+  - force_unwrapping
+
+identifier_name:
+  min_length: 1

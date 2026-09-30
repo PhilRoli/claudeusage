@@ -34,7 +34,8 @@ final class ThresholdTrackerTests: XCTestCase {
         let d = UserDefaults(suiteName: "TT-\(UUID().uuidString)")!
         var t = ThresholdTracker(defaults: d)
         for i in 0..<40 { _ = t.newCrossings(windowKey: "k\(i)", utilization: 99, thresholds: [80]) }
-        let stored = (d.data(forKey: "firedThresholds")).flatMap { try? JSONDecoder().decode([String: [Double]].self, from: $0) }
+        let data = d.data(forKey: "firedThresholds")
+        let stored = data.flatMap { try? JSONDecoder().decode([String: [Double]].self, from: $0) }
         XCTAssertLessThanOrEqual(stored?.count ?? 999, 16)
         // the newest key is still remembered
         var again = ThresholdTracker(defaults: d)

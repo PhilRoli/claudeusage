@@ -8,6 +8,7 @@ final class KeychainTokenReaderTests: XCTestCase {
         var oauth: [String: Any] = [:]
         if let token { oauth["accessToken"] = token }
         if let expiresAtMs { oauth["expiresAt"] = expiresAtMs }
+        // swiftlint:disable:next force_try
         return try! JSONSerialization.data(withJSONObject: ["claudeAiOauth": oauth])
     }
 

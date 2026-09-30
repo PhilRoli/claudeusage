@@ -19,7 +19,8 @@ actor LocalUsageScanner {
             at: root, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]
         ) else { return [] }
         for case let url as URL in en where url.pathExtension == "jsonl" {
-            let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            let mtime = values?.contentModificationDate ?? .distantPast
             if now.timeIntervalSince(mtime) > maxAge { continue }
             ingest(url)
         }

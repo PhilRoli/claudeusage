@@ -8,7 +8,8 @@ final class FormatTests: XCTestCase {
         let both = Limits(fiveHour: LimitWindow(utilization: 42.4, resetsAt: nil),
                           sevenDay: LimitWindow(utilization: 18.5, resetsAt: nil))
         XCTAssertEqual(Format.title(both), "42% · 19%")
-        XCTAssertEqual(Format.title(Limits(fiveHour: LimitWindow(utilization: 5, resetsAt: nil), sevenDay: nil)), "5% · –")
+        let partial = Limits(fiveHour: LimitWindow(utilization: 5, resetsAt: nil), sevenDay: nil)
+        XCTAssertEqual(Format.title(partial), "5% · –")
         XCTAssertEqual(Format.title(nil), "–")
     }
 

@@ -5,7 +5,9 @@ final class PreferencesWindowController: NSWindowController {
     private let config: AppConfig
     private let onChange: () -> Void
 
-    private let intervals: [(String, TimeInterval)] = [("1 minute", 60), ("2 minutes", 120), ("5 minutes", 300), ("10 minutes", 600)]
+    private let intervals: [(String, TimeInterval)] = [
+        ("1 minute", 60), ("2 minutes", 120), ("5 minutes", 300), ("10 minutes", 600)
+    ]
     private let warns: [Double] = [70, 80, 90]
     private let criticals: [Double] = [90, 95, 99]
 
@@ -53,7 +55,7 @@ final class PreferencesWindowController: NSWindowController {
             row("Warn at", warnPopup),
             row("Critical at", criticalPopup),
             notifyCheck,
-            loginCheck,
+            loginCheck
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
