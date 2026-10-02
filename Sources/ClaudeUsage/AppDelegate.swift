@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.onPreferences = { [weak self] in self?.showPreferences() }
         fetcher.onUpdate = { [weak self] snapshot in
             self?.statusBar.render(snapshot)
+            if let limits = snapshot.limits { StatuslineCache.write(limits) }
             self?.notifyIfNeeded(snapshot)
         }
         notifier.requestAuthorization()
