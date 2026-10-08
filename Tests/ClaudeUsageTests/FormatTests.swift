@@ -49,8 +49,10 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.bar(150), "▓▓▓▓▓▓▓▓▓▓")
         XCTAssertEqual(Format.bar(-3), "░░░░░░░░░░")
         let w = LimitWindow(utilization: 42, resetsAt: now.addingTimeInterval(3600))
-        XCTAssertEqual(Format.limitLine("Session (5h)", w, now: now), "Session (5h)  ▓▓▓▓░░░░░░ 42% · resets in 1h 0m")
-        XCTAssertEqual(Format.limitLine("Weekly", nil, now: now), "Weekly  –")
+        XCTAssertEqual(Format.limitLine("Session (5h)", w), "Session (5h)  ▓▓▓▓░░░░░░ 42%")
+        XCTAssertEqual(Format.limitLine("Weekly", nil), "Weekly  –")
+        XCTAssertEqual(Format.detailLine(w, nil, now: now), "resets in 1h 0m")
+        XCTAssertNil(Format.detailLine(nil, nil, now: now))
     }
 
     func testBucketLine() {

@@ -3,11 +3,12 @@ import Foundation
 enum Format {
     static func percent(_ v: Double) -> String { "\(Int(v.rounded()))%" }
 
-    static func title(_ limits: Limits?) -> String {
+    static func title(_ limits: Limits?, now: Date = Date()) -> String {
         guard let limits else { return "–" }
-        return [limits.fiveHour, limits.sevenDay]
+        let text = [limits.fiveHour, limits.sevenDay]
             .map { $0.map { percent($0.utilization) } ?? "–" }
             .joined(separator: " · ")
+        return limits.willHitLimit(at: now) ? "⚠ " + text : text
     }
 
     static func countdown(to date: Date, now: Date) -> String {
@@ -36,11 +37,24 @@ enum Format {
         return String(repeating: "▓", count: filled) + String(repeating: "░", count: width - filled)
     }
 
-    static func limitLine(_ name: String, _ w: LimitWindow?, now: Date) -> String {
+    static func limitLine(_ name: String, _ w: LimitWindow?) -> String {
         guard let w else { return "\(name)  –" }
-        var s = "\(name)  \(bar(w.utilization)) \(percent(w.utilization))"
-        if let r = w.resetsAt { s += " · resets in \(countdown(to: r, now: now))" }
-        return s
+        return "\(name)  \(bar(w.utilization)) \(percent(w.utilization))"
+    }
+
+    /// Second line under a limit: reset countdown and burn-rate prediction.
+    static func detailLine(_ w: LimitWindow?, _ p: Prediction?, now: Date) -> String? {
+        guard let w else { return nil }
+        var parts: [String] = []
+        if let r = w.resetsAt { parts.append("resets in \(countdown(to: r, now: now))") }
+        if let p {
+            if let hit = p.hitsLimitIn {
+                parts.append("⚠ hits limit in \(countdown(to: now.addingTimeInterval(hit), now: now))")
+            } else {
+                parts.append("on pace for \(percent(p.projected))")
+            }
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     static func bucketLine(_ label: String, _ b: UsageBucket) -> String {

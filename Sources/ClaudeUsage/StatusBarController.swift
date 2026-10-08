@@ -26,7 +26,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let peak = [limits?.fiveHour, limits?.sevenDay].compactMap { $0?.utilization }.max() ?? 0
         let color: NSColor = peak >= config.criticalThreshold ? .systemRed
             : peak >= config.warnThreshold ? .systemOrange : .labelColor
-        var title = Format.title(limits)
+        var title = Format.title(limits, now: Date())
         if case .stale = snapshot.status { title += "*" }
         item.button?.attributedTitle = NSAttributedString(string: title, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
@@ -45,8 +45,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         case .ok: break
         }
         let limits = snapshot.limits?.current(at: now)
-        menu.addItem(text(Format.limitLine("Session (5h)", limits?.fiveHour, now: now)))
-        menu.addItem(text(Format.limitLine("Weekly      ", limits?.sevenDay, now: now)))
+        addLimit(to: menu, "Session (5h)", limits?.fiveHour, limits?.fiveHourPrediction(at: now), now: now)
+        addLimit(to: menu, "Weekly      ", limits?.sevenDay, limits?.sevenDayPrediction(at: now), now: now)
         menu.addItem(.separator())
 
         menu.addItem(text(Format.bucketLine("Today", snapshot.local.today)))
@@ -62,6 +62,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(action("Refresh now", #selector(refreshClicked), key: "r"))
         menu.addItem(action("Preferences…", #selector(preferencesClicked), key: ","))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    private func addLimit(to menu: NSMenu, _ name: String, _ w: LimitWindow?, _ p: Prediction?, now: Date) {
+        menu.addItem(text(Format.limitLine(name, w)))
+        if let detail = Format.detailLine(w, p, now: now) {
+            menu.addItem(text("  " + detail))
+        }
     }
 
     private func text(_ s: String) -> NSMenuItem {

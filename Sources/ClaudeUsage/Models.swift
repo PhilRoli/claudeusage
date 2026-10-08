@@ -22,6 +22,47 @@ extension Limits {
     }
 }
 
+struct Prediction: Equatable {
+    /// Utilization expected at reset if the current burn rate continues.
+    let projected: Double
+    /// Time until 100% is reached, when that happens before the window resets.
+    let hitsLimitIn: TimeInterval?
+}
+
+extension LimitWindow {
+    /// Share of the window that must have elapsed before extrapolating; earlier is too noisy.
+    static let minElapsedFraction = 0.05
+
+    /// Linear extrapolation of the burn rate so far in the window.
+    func prediction(windowLength: TimeInterval, now: Date) -> Prediction? {
+        guard let resetsAt, utilization > 0, utilization < 100 else { return nil }
+        let elapsed = now.timeIntervalSince(resetsAt.addingTimeInterval(-windowLength))
+        guard elapsed >= windowLength * Self.minElapsedFraction, elapsed <= windowLength else { return nil }
+        let projected = utilization / elapsed * windowLength
+        guard projected >= 100 else { return Prediction(projected: projected, hitsLimitIn: nil) }
+        let secondsToLimit = (100 - utilization) / utilization * elapsed
+        return Prediction(projected: projected, hitsLimitIn: secondsToLimit)
+    }
+}
+
+extension Limits {
+    static let fiveHourLength: TimeInterval = 5 * 3600
+    static let sevenDayLength: TimeInterval = 7 * 86400
+
+    func fiveHourPrediction(at now: Date) -> Prediction? {
+        fiveHour?.prediction(windowLength: Self.fiveHourLength, now: now)
+    }
+
+    func sevenDayPrediction(at now: Date) -> Prediction? {
+        sevenDay?.prediction(windowLength: Self.sevenDayLength, now: now)
+    }
+
+    /// True if either window is on track to reach 100% before it resets.
+    func willHitLimit(at now: Date) -> Bool {
+        fiveHourPrediction(at: now)?.hitsLimitIn != nil || sevenDayPrediction(at: now)?.hitsLimitIn != nil
+    }
+}
+
 struct OAuthToken: Equatable {
     let accessToken: String
     let expiresAt: Date?
