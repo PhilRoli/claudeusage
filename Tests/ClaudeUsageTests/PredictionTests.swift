@@ -34,6 +34,11 @@ final class PredictionTests: XCTestCase {
         let hot = Limits(fiveHour: window(60, elapsedFraction: 0.5), sevenDay: nil)
         XCTAssertTrue(hot.willHitLimit(at: now))
         XCTAssertEqual(Format.title(hot, now: now), "⚠ 60% · –")
+        let both = Limits(fiveHour: window(60, elapsedFraction: 0.5), sevenDay: LimitWindow(
+            utilization: 60, resetsAt: now.addingTimeInterval(Limits.sevenDayLength * 0.5)))
+        XCTAssertEqual(Format.title(both, now: now), "⚠ 60% · 60% ⚠")
+        let weeklyOnly = Limits(fiveHour: window(20, elapsedFraction: 0.5), sevenDay: both.sevenDay)
+        XCTAssertEqual(Format.title(weeklyOnly, now: now), "20% · 60% ⚠")
         let calm = Limits(fiveHour: window(20, elapsedFraction: 0.5), sevenDay: nil)
         XCTAssertFalse(calm.willHitLimit(at: now))
         XCTAssertEqual(Format.title(calm, now: now), "20% · –")

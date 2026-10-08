@@ -2,18 +2,27 @@ import Foundation
 
 enum UsageError: Error, Equatable {
     case unauthorized
+    case rateLimited(retryAfter: TimeInterval?)
     case http(Int)
     case decoding
 }
 
 protocol HTTPTransport {
-    func send(_ request: URLRequest) async throws -> (Data, Int)
+    func send(_ request: URLRequest) async throws -> HTTPResult
+}
+
+struct HTTPResult {
+    var data: Data
+    var status: Int
+    var retryAfter: TimeInterval?
 }
 
 struct URLSessionTransport: HTTPTransport {
-    func send(_ request: URLRequest) async throws -> (Data, Int) {
+    func send(_ request: URLRequest) async throws -> HTTPResult {
         let (data, response) = try await URLSession.shared.data(for: request)
-        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+        let http = response as? HTTPURLResponse
+        let retryAfter = http?.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+        return HTTPResult(data: data, status: http?.statusCode ?? 0, retryAfter: retryAfter)
     }
 }
 
@@ -30,11 +39,12 @@ struct UsageClient: LimitsFetching {
         req.timeoutInterval = 15
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        let (data, status) = try await transport.send(req)
-        switch status {
-        case 200..<300: return try Self.decode(data)
+        let result = try await transport.send(req)
+        switch result.status {
+        case 200..<300: return try Self.decode(result.data)
         case 401, 403: throw UsageError.unauthorized
-        default: throw UsageError.http(status)
+        case 429: throw UsageError.rateLimited(retryAfter: result.retryAfter)
+        default: throw UsageError.http(result.status)
         }
     }
 

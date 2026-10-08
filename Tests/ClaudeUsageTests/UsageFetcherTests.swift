@@ -142,7 +142,7 @@ final class UsageFetcherTests: XCTestCase {
         XCTAssertEqual(f.snapshot.status, .ok)
         await f.refresh()
         XCTAssertEqual(f.snapshot.limits, limits)
-        XCTAssertEqual(f.snapshot.status, .stale("Usage endpoint unavailable"))
+        XCTAssertEqual(f.snapshot.status, .stale("Usage endpoint unavailable (HTTP 500)"))
     }
 
     func testFailureWithNoPriorLimitsIsUnavailable() async {
@@ -150,5 +150,19 @@ final class UsageFetcherTests: XCTestCase {
         await f.refresh()
         XCTAssertNil(f.snapshot.limits)
         XCTAssertEqual(f.snapshot.status, .unavailable("Usage endpoint unavailable"))
+    }
+
+    func testRateLimitedMessageAndBackoff() async {
+        let f = make(tokens: FakeTokens([.success(tok)]),
+                     client: FakeClient([.failure(.rateLimited(retryAfter: nil)), .failure(.rateLimited(retryAfter: 900)),
+                                         .success(limits)]))
+        XCTAssertEqual(f.nextDelay(base: 120), 120)
+        await f.refresh()
+        XCTAssertEqual(f.snapshot.status, .unavailable("Rate limited by usage endpoint"))
+        XCTAssertEqual(f.nextDelay(base: 120), 240)
+        await f.refresh()
+        XCTAssertEqual(f.nextDelay(base: 120), 900) // Retry-After beats the doubled interval
+        await f.refresh()
+        XCTAssertEqual(f.nextDelay(base: 120), 120)
     }
 }

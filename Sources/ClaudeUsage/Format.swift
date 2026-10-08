@@ -5,10 +5,10 @@ enum Format {
 
     static func title(_ limits: Limits?, now: Date = Date()) -> String {
         guard let limits else { return "–" }
-        let text = [limits.fiveHour, limits.sevenDay]
-            .map { $0.map { percent($0.utilization) } ?? "–" }
-            .joined(separator: " · ")
-        return limits.willHitLimit(at: now) ? "⚠ " + text : text
+        func text(_ w: LimitWindow?) -> String { w.map { percent($0.utilization) } ?? "–" }
+        let left = limits.fiveHourPrediction(at: now)?.hitsLimitIn != nil ? "⚠ " : ""
+        let right = limits.sevenDayPrediction(at: now)?.hitsLimitIn != nil ? " ⚠" : ""
+        return left + text(limits.fiveHour) + " · " + text(limits.sevenDay) + right
     }
 
     static func countdown(to date: Date, now: Date) -> String {

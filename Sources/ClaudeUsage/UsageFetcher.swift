@@ -8,6 +8,8 @@ final class UsageFetcher {
     private let now: () -> Date
     private var lastLimits: Limits?
     private var failures = 0
+    private var rateLimitStreak = 0
+    private var retryAfter: TimeInterval = 0
     private var isRefreshing = false
     private var task: Task<Void, Never>?
 
@@ -34,6 +36,7 @@ final class UsageFetcher {
         do {
             lastLimits = try await loadLimits()
             failures = 0
+            rateLimitStreak = 0
         } catch {
             failure = error
         }
@@ -43,6 +46,12 @@ final class UsageFetcher {
         if let failure {
             if Self.isCancellation(failure) { return }
             failures += 1
+            if case UsageError.rateLimited(let after) = failure {
+                rateLimitStreak += 1
+                retryAfter = after ?? 0
+            } else {
+                rateLimitStreak = 0
+            }
             let message = Self.message(for: failure)
             if lastLimits != nil {
                 status = failures >= 2 ? .stale(message) : .ok
@@ -61,7 +70,8 @@ final class UsageFetcher {
             var skipSleep = immediate
             while !Task.isCancelled {
                 if !skipSleep {
-                    try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                    let delay = self?.nextDelay(base: interval) ?? interval
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                     if Task.isCancelled { break }
                 }
                 skipSleep = false
@@ -69,6 +79,15 @@ final class UsageFetcher {
                 await Task { await self?.refresh() }.value
             }
         }
+    }
+
+    static let maxBackoff: TimeInterval = 1800
+
+    /// Doubles the polling interval per consecutive 429 (capped), and never polls sooner than `Retry-After`.
+    func nextDelay(base: TimeInterval) -> TimeInterval {
+        guard rateLimitStreak > 0 else { return base }
+        let backedOff = base * pow(2, Double(min(rateLimitStreak, 10)))
+        return min(max(backedOff, retryAfter), max(Self.maxBackoff, base, retryAfter))
     }
 
     func stop() {
@@ -112,6 +131,8 @@ final class UsageFetcher {
         case TokenError.expired: return "Open Claude Code to refresh login"
         case TokenError.unreadable: return "Can't read Claude Code credentials"
         case UsageError.unauthorized: return "Claude login was rejected"
+        case UsageError.rateLimited: return "Rate limited by usage endpoint"
+        case UsageError.http(let code): return "Usage endpoint unavailable (HTTP \(code))"
         default: return "Usage endpoint unavailable"
         }
     }

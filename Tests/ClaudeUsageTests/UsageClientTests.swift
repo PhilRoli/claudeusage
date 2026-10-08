@@ -5,10 +5,11 @@ final class UsageClientTests: XCTestCase {
     struct FakeTransport: HTTPTransport {
         var status = 200
         var body = Data()
+        var retryAfter: TimeInterval?
         var capture: ((URLRequest) -> Void)?
-        func send(_ request: URLRequest) async throws -> (Data, Int) {
+        func send(_ request: URLRequest) async throws -> HTTPResult {
             capture?(request)
-            return (body, status)
+            return HTTPResult(data: body, status: status, retryAfter: retryAfter)
         }
     }
 
@@ -60,5 +61,12 @@ final class UsageClientTests: XCTestCase {
             _ = try await UsageClient(transport: FakeTransport(status: 500)).fetchLimits(accessToken: "x")
             XCTFail("expected throw")
         } catch { XCTAssertEqual(error as? UsageError, .http(500)) }
+    }
+
+    func test429MapsToRateLimitedWithRetryAfter() async {
+        do {
+            _ = try await UsageClient(transport: FakeTransport(status: 429, retryAfter: 90)).fetchLimits(accessToken: "x")
+            XCTFail("expected throw")
+        } catch { XCTAssertEqual(error as? UsageError, .rateLimited(retryAfter: 90)) }
     }
 }
