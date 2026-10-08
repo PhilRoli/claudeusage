@@ -154,7 +154,8 @@ final class UsageFetcherTests: XCTestCase {
 
     func testRateLimitedMessageAndBackoff() async {
         let f = make(tokens: FakeTokens([.success(tok)]),
-                     client: FakeClient([.failure(.rateLimited(retryAfter: nil)), .failure(.rateLimited(retryAfter: 900)),
+                     client: FakeClient([.failure(.rateLimited(retryAfter: nil)),
+                                         .failure(.rateLimited(retryAfter: 900)),
                                          .success(limits)]))
         XCTAssertEqual(f.nextDelay(base: 120), 120)
         await f.refresh()

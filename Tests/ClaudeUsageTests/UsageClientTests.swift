@@ -65,7 +65,8 @@ final class UsageClientTests: XCTestCase {
 
     func test429MapsToRateLimitedWithRetryAfter() async {
         do {
-            _ = try await UsageClient(transport: FakeTransport(status: 429, retryAfter: 90)).fetchLimits(accessToken: "x")
+            let client = UsageClient(transport: FakeTransport(status: 429, retryAfter: 90))
+            _ = try await client.fetchLimits(accessToken: "x")
             XCTFail("expected throw")
         } catch { XCTAssertEqual(error as? UsageError, .rateLimited(retryAfter: 90)) }
     }
