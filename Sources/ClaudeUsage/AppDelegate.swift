@@ -1,9 +1,16 @@
 import AppKit
+import MenuBarKit
 
 private struct WatchedWindow {
     let id: String
     let name: String
     let window: LimitWindow?
+}
+
+/// Accessory apps have no visible menu bar; without these items text fields can't use ⌘C/⌘V/⌘X/⌘A.
+@MainActor
+func installMainMenu() {
+    NSApp.mainMenu = MainMenu.make(appName: "ClaudeUsage")
 }
 
 @MainActor
@@ -16,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var prefs: PreferencesWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        installMainMenu()
         fetcher = UsageFetcher(tokens: KeychainTokenReader(), client: UsageClient(), scanner: LocalUsageScanner())
         statusBar = StatusBarController(config: config)
         statusBar.onRefresh = { [weak self] in
