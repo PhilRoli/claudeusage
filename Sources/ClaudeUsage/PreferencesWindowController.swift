@@ -1,4 +1,5 @@
 import AppKit
+import MenuBarKit
 
 @MainActor
 final class PreferencesWindowController: NSWindowController {
@@ -55,13 +56,16 @@ final class PreferencesWindowController: NSWindowController {
             row("Warn at", warnPopup),
             row("Critical at", criticalPopup),
             notifyCheck,
-            loginCheck
+            loginCheck,
+            PreferencesLayout.versionLabel()
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         window?.contentView = stack
+        let fitting = stack.fittingSize
+        window?.setContentSize(NSSize(width: max(320, fitting.width), height: fitting.height))
     }
 
     private func row(_ label: String, _ control: NSView) -> NSStackView {
