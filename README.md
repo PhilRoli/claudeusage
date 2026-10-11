@@ -1,6 +1,4 @@
-<p align="center"><img src="Packaging/icon.png" width="128" alt="ClaudeUsage icon"></p>
-
-# ClaudeUsage
+# <img src="Packaging/icon.png" width="48" height="48" align="absmiddle" alt="ClaudeUsage icon"> ClaudeUsage
 
 Menubar app showing Claude Code 5-hour / weekly limit usage (`42% · 18%`) plus local token and cost stats.
 
