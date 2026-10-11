@@ -1,4 +1,4 @@
-# ClaudeUsage
+# <img src="Packaging/icon.png" width="48" height="48" align="absmiddle" alt="ClaudeUsage icon"> ClaudeUsage
 
 Menubar app showing Claude Code 5-hour / weekly limit usage (`42% · 18%`) plus local token and cost stats.
 
@@ -26,7 +26,7 @@ On first launch macOS asks for Keychain access for `security`: choose "Always Al
 
 ## Development
 
-- Build + install locally: `./rebuild.sh` (installs to /Applications, ad-hoc signed).
+- Build + install locally: `./rebuild.sh` (installs to /Applications, ad-hoc signed; needs [menubar-kit](https://github.com/PhilRoli/menubar-kit) cloned next to this repo, or `MENUBAR_KIT` set).
 - Tests: `swift test`. Lint: `swiftlint --strict`.
 - Release: push a tag `vX.Y.Z`. The Release workflow builds a universal app, publishes `ClaudeUsage-X.Y.Z.app.zip` and updates `Casks/claudeusage.rb` in `PhilRoli/homebrew-tap` (needs the `HOMEBREW_TAP_TOKEN` repo secret).
-- Regenerate the icon: `scripts/make-icon.sh`.
+- Regenerate the icon: `../menubar-kit/scripts/make-icon.sh 📊`.
