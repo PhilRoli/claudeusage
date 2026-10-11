@@ -1,4 +1,5 @@
 import AppKit
+import MenuBarKit
 
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
@@ -79,9 +80,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func action(_ title: String, _ sel: Selector, key: String) -> NSMenuItem {
-        let i = NSMenuItem(title: title, action: sel, keyEquivalent: key)
-        i.target = self
-        return i
+        .item(title, action: sel, key: key, target: self)
     }
 
     private func submenu(_ title: String, _ rows: [NamedBucket]) -> NSMenuItem {
