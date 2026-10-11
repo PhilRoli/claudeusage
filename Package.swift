@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "ClaudeUsage",
     platforms: [.macOS(.v13)],
-    dependencies: [.package(url: "https://github.com/PhilRoli/menubar-kit", from: "1.1.0")],
+    dependencies: [.package(url: "https://github.com/PhilRoli/menubar-kit", from: "1.2.0")],
     targets: [
         .executableTarget(
             name: "ClaudeUsage",
