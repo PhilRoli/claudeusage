@@ -13,7 +13,7 @@
     <key>CFBundleShortVersionString</key>
     <string>$(VERSION)</string>
     <key>CFBundleVersion</key>
-    <string>$(VERSION)</string>
+    <string>$(BUILD_VERSION)</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>LSUIElement</key>
