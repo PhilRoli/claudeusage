@@ -3,6 +3,7 @@ import MenuBarKit
 
 @MainActor
 final class PreferencesWindowController: NSWindowController {
+    private let loginItem = LoginItemController()
     private let config: AppConfig
     private let onChange: () -> Void
 
@@ -40,7 +41,7 @@ final class PreferencesWindowController: NSWindowController {
         criticalPopup.addItems(withTitles: criticals.map { "\(Int($0))%" })
         criticalPopup.selectItem(at: criticals.firstIndex(of: config.criticalThreshold) ?? 1)
         notifyCheck.state = config.notificationsEnabled ? .on : .off
-        loginCheck.state = LoginItem.isEnabled ? .on : .off
+        loginCheck.state = loginItem.isEnabled ? .on : .off
 
         for control in [intervalPopup, warnPopup, criticalPopup] {
             control.target = self
@@ -85,7 +86,7 @@ final class PreferencesWindowController: NSWindowController {
     }
 
     @objc private func loginChanged() {
-        do { try LoginItem.set(loginCheck.state == .on) } catch { NSSound.beep() }
-        loginCheck.state = LoginItem.isEnabled ? .on : .off // reflect what the system actually accepted
+        if !loginItem.setEnabled(loginCheck.state == .on) { NSSound.beep() }
+        loginCheck.state = loginItem.isEnabled ? .on : .off // reflect what the system actually accepted
     }
 }
