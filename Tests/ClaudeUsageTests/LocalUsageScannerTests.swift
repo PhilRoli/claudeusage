@@ -13,8 +13,15 @@ final class LocalUsageScannerTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 
+    /// Fixtures must stay inside the scanner's 30-day window relative to the real clock.
+    private static func recentTimestamp() -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.string(from: Date().addingTimeInterval(-3600))
+    }
+
     private func line(id: String, req: String = "req1", out: Int, model: String = "claude-sonnet-5",
-                      ts: String = "2026-09-30T10:00:00.000Z", cwd: String = "/Users/p/proj") -> String {
+                      ts: String = LocalUsageScannerTests.recentTimestamp(), cwd: String = "/Users/p/proj") -> String {
         """
         {"timestamp":"\(ts)","requestId":"\(req)","cwd":"\(cwd)","message"\
         :{"id":"\(id)","model":"\(model)",\
