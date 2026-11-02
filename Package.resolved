@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PhilRoli/menubar-kit",
       "state" : {
-        "revision" : "89e4e76db876109879acb5e087f93e6dd0266475",
-        "version" : "1.3.0"
+        "revision" : "17bafaeaab4a1ace15ea9055e11d0036a7fcc3b7",
+        "version" : "1.4.0"
       }
     }
   ],
