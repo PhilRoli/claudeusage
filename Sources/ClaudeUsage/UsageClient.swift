@@ -21,8 +21,25 @@ struct URLSessionTransport: HTTPTransport {
     func send(_ request: URLRequest) async throws -> HTTPResult {
         let (data, response) = try await URLSession.shared.data(for: request)
         let http = response as? HTTPURLResponse
-        let retryAfter = http?.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+        let retryAfter = http?.value(forHTTPHeaderField: "Retry-After").flatMap { RetryAfter.parse($0) }
         return HTTPResult(data: data, status: http?.statusCode ?? 0, retryAfter: retryAfter)
+    }
+}
+
+enum RetryAfter {
+    private static let httpDate: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "GMT")
+        f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        return f
+    }()
+
+    /// `Retry-After` is either delta-seconds or an HTTP-date; returns seconds from `now`.
+    static func parse(_ value: String, now: Date = Date()) -> TimeInterval? {
+        let v = value.trimmingCharacters(in: .whitespaces)
+        if let seconds = TimeInterval(v) { return seconds.isFinite && seconds >= 0 ? seconds : nil }
+        return httpDate.date(from: v).map { max(0, $0.timeIntervalSince(now)) }
     }
 }
 
