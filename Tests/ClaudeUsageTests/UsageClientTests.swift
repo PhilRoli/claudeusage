@@ -70,4 +70,13 @@ final class UsageClientTests: XCTestCase {
             XCTFail("expected throw")
         } catch { XCTAssertEqual(error as? UsageError, .rateLimited(retryAfter: 90)) }
     }
+
+    func testRetryAfterParsesSecondsAndHTTPDate() {
+        let now = Date(timeIntervalSince1970: 784_111_777) // Sun, 06 Nov 1994 08:49:37 GMT
+        XCTAssertEqual(RetryAfter.parse("90", now: now), 90)
+        XCTAssertEqual(RetryAfter.parse("Sun, 06 Nov 1994 08:51:37 GMT", now: now), 120)
+        XCTAssertEqual(RetryAfter.parse("Sun, 06 Nov 1994 08:00:00 GMT", now: now), 0)
+        XCTAssertNil(RetryAfter.parse("soon", now: now))
+        XCTAssertNil(RetryAfter.parse("inf", now: now))
+    }
 }

@@ -153,17 +153,53 @@ final class UsageFetcherTests: XCTestCase {
     }
 
     func testRateLimitedMessageAndBackoff() async {
-        let f = make(tokens: FakeTokens([.success(tok)]),
-                     client: FakeClient([.failure(.rateLimited(retryAfter: nil)),
-                                         .failure(.rateLimited(retryAfter: 900)),
-                                         .success(limits)]))
+        var clock = Date()
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]),
+                             client: FakeClient([.failure(.rateLimited(retryAfter: nil)),
+                                                 .failure(.rateLimited(retryAfter: 900)),
+                                                 .success(limits)]),
+                             scanner: LocalUsageScanner(root: emptyDir), now: { clock })
         XCTAssertEqual(f.nextDelay(base: 120), 120)
         await f.refresh()
-        XCTAssertEqual(f.snapshot.status, .unavailable("Rate limited by usage endpoint"))
+        guard case .unavailable(let msg) = f.snapshot.status else { return XCTFail("expected unavailable") }
+        XCTAssertTrue(msg.hasPrefix("Rate limited"))
         XCTAssertEqual(f.nextDelay(base: 120), 240)
+        clock.addTimeInterval(241)
         await f.refresh()
         XCTAssertEqual(f.nextDelay(base: 120), 900) // Retry-After beats the doubled interval
+        clock.addTimeInterval(901)
         await f.refresh()
         XCTAssertEqual(f.nextDelay(base: 120), 120)
+    }
+
+    func testBlockedRefreshSkipsNetworkAndPersistsAcrossRelaunch() async {
+        let suite = UserDefaults(suiteName: UUID().uuidString)!
+        let client = FakeClient([.failure(.rateLimited(retryAfter: 600)), .success(limits)])
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]), client: client,
+                             scanner: LocalUsageScanner(root: emptyDir), defaults: suite)
+        await f.refresh()
+        await f.refresh() // manual refresh while blocked
+        XCTAssertEqual(client.calls, 1)
+
+        let relaunched = UsageFetcher(tokens: FakeTokens([.success(tok)]), client: client,
+                                      scanner: LocalUsageScanner(root: emptyDir), defaults: suite)
+        await relaunched.refresh()
+        XCTAssertEqual(client.calls, 1)
+        guard case .unavailable(let msg) = relaunched.snapshot.status else { return XCTFail("expected unavailable") }
+        XCTAssertTrue(msg.hasPrefix("Rate limited"))
+    }
+
+    func testExpiredBlockAllowsRequestAndClearsIt() async {
+        var clock = Date()
+        let suite = UserDefaults(suiteName: UUID().uuidString)!
+        let client = FakeClient([.failure(.rateLimited(retryAfter: 600)), .success(limits)])
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]), client: client,
+                             scanner: LocalUsageScanner(root: emptyDir), defaults: suite, now: { clock })
+        await f.refresh()
+        clock.addTimeInterval(601)
+        await f.refresh()
+        XCTAssertEqual(client.calls, 2)
+        XCTAssertEqual(f.snapshot.status, .ok)
+        XCTAssertNil(suite.object(forKey: "rateLimitedUntil"))
     }
 }

@@ -24,7 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
-        fetcher = UsageFetcher(tokens: KeychainTokenReader(), client: UsageClient(), scanner: LocalUsageScanner())
+        fetcher = UsageFetcher(tokens: KeychainTokenReader(), client: UsageClient(), scanner: LocalUsageScanner(),
+                              defaults: .standard)
         statusBar = StatusBarController(config: config)
         statusBar.onRefresh = { [weak self] in
             Task { await self?.fetcher.refresh() }
