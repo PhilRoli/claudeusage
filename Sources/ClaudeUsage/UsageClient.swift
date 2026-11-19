@@ -16,6 +16,19 @@ struct HTTPResult {
     var data: Data
     var status: Int
     var retryAfter: TimeInterval?
+    var headers: [String: String] = [:]
+}
+
+/// Rate-limit related response headers for diagnostics (an allowlist, so nothing sensitive is ever logged).
+enum DiagnosticHeaders {
+    static func summary(_ headers: [String: String]) -> String {
+        let kept = headers.compactMap { key, value -> String? in
+            let k = key.lowercased()
+            guard k == "retry-after" || k == "request-id" || k.hasPrefix("anthropic-ratelimit") else { return nil }
+            return "\(k)=\(value)"
+        }
+        return kept.isEmpty ? "none" : kept.sorted().joined(separator: " ")
+    }
 }
 
 struct URLSessionTransport: HTTPTransport {
@@ -23,7 +36,11 @@ struct URLSessionTransport: HTTPTransport {
         let (data, response) = try await URLSession.shared.data(for: request)
         let http = response as? HTTPURLResponse
         let retryAfter = http?.value(forHTTPHeaderField: "Retry-After").flatMap { RetryAfter.parse($0) }
-        return HTTPResult(data: data, status: http?.statusCode ?? 0, retryAfter: retryAfter)
+        var headers: [String: String] = [:]
+        for (k, v) in http?.allHeaderFields ?? [:] {
+            if let k = k as? String, let v = v as? String { headers[k] = v }
+        }
+        return HTTPResult(data: data, status: http?.statusCode ?? 0, retryAfter: retryAfter, headers: headers)
     }
 }
 
@@ -59,8 +76,8 @@ struct UsageClient: LimitsFetching {
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         let result = try await transport.send(req)
-        let retry = result.retryAfter.map { String($0) } ?? "none"
-        Self.log.info("usage response status=\(result.status) retryAfter=\(retry)")
+        let diag = DiagnosticHeaders.summary(result.headers)
+        Self.log.info("usage response status=\(result.status) headers: \(diag, privacy: .public)")
         switch result.status {
         case 200..<300: return try Self.decode(result.data)
         case 401, 403: throw UsageError.unauthorized

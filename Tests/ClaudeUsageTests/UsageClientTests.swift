@@ -79,4 +79,16 @@ final class UsageClientTests: XCTestCase {
         XCTAssertNil(RetryAfter.parse("soon", now: now))
         XCTAssertNil(RetryAfter.parse("inf", now: now))
     }
+
+    func testDiagnosticHeadersKeepRateLimitInfoOnly() {
+        let summary = DiagnosticHeaders.summary([
+            "Retry-After": "120",
+            "Anthropic-RateLimit-Unified-Reset": "1795126362",
+            "request-id": "req_123",
+            "Authorization": "Bearer secret",
+            "Set-Cookie": "a=b"
+        ])
+        XCTAssertEqual(summary, "anthropic-ratelimit-unified-reset=1795126362 request-id=req_123 retry-after=120")
+        XCTAssertEqual(DiagnosticHeaders.summary([:]), "none")
+    }
 }
