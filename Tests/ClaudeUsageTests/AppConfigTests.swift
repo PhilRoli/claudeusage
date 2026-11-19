@@ -8,7 +8,7 @@ final class AppConfigTests: XCTestCase {
 
     func testDefaults() {
         let c = AppConfig(defaults: makeDefaults())
-        XCTAssertEqual(c.refreshInterval, 120)
+        XCTAssertEqual(c.refreshInterval, 300)
         XCTAssertEqual(c.warnThreshold, 80)
         XCTAssertEqual(c.criticalThreshold, 95)
         XCTAssertTrue(c.notificationsEnabled)

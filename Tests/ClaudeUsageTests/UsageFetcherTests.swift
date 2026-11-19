@@ -164,11 +164,31 @@ final class UsageFetcherTests: XCTestCase {
         guard case .unavailable(let msg) = f.snapshot.status else { return XCTFail("expected unavailable") }
         XCTAssertTrue(msg.hasPrefix("Rate limited"))
         XCTAssertEqual(f.nextDelay(base: 120), 240)
-        clock.addTimeInterval(241)
+        clock.addTimeInterval(601) // past the 300s-base block
         await f.refresh()
         XCTAssertEqual(f.nextDelay(base: 120), 900) // Retry-After beats the doubled interval
-        clock.addTimeInterval(901)
+        clock.addTimeInterval(1201)
         await f.refresh()
+        XCTAssertEqual(f.nextDelay(base: 120), 480) // one success doesn't forget the backoff (Retry-After is spent)
+    }
+
+    func testBackoffDecaysOneStepPerThreeSuccesses() async {
+        var clock = Date()
+        let f = UsageFetcher(tokens: FakeTokens([.success(tok)]),
+                             client: FakeClient([.failure(.rateLimited(retryAfter: nil)),
+                                                 .failure(.rateLimited(retryAfter: nil)),
+                                                 .success(limits)]),
+                             scanner: LocalUsageScanner(root: emptyDir), now: { clock })
+        for _ in 0..<2 {
+            await f.refresh()
+            clock.addTimeInterval(5000)
+        }
+        XCTAssertEqual(f.nextDelay(base: 120), 480)
+        for _ in 0..<2 { await f.refresh() }
+        XCTAssertEqual(f.nextDelay(base: 120), 480)
+        await f.refresh() // third consecutive success
+        XCTAssertEqual(f.nextDelay(base: 120), 240)
+        for _ in 0..<3 { await f.refresh() }
         XCTAssertEqual(f.nextDelay(base: 120), 120)
     }
 

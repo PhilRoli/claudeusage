@@ -8,9 +8,13 @@ final class UsageFetcher {
     private let now: () -> Date
     private var lastLimits: Limits?
     private var failures = 0
+    /// Backoff level: +1 per 429, -1 per `successesPerDecay` consecutive successes (a single success must not
+    /// snap polling back to the base rate, or we oscillate right around the server's limit).
     private var rateLimitStreak = 0
+    private var successRun = 0
+    private static let successesPerDecay = 3
     private var retryAfter: TimeInterval = 0
-    private var baseInterval: TimeInterval = 120
+    private var baseInterval: TimeInterval = 300
     /// No requests are sent before this moment (set after a 429; persisted so a relaunch can't hammer the endpoint).
     private var blockedUntil: Date?
     private let defaults: UserDefaults?
@@ -48,7 +52,12 @@ final class UsageFetcher {
             do {
                 lastLimits = try await loadLimits()
                 failures = 0
-                rateLimitStreak = 0
+                retryAfter = 0
+                successRun += 1
+                if successRun >= Self.successesPerDecay {
+                    rateLimitStreak = max(0, rateLimitStreak - 1)
+                    successRun = 0
+                }
                 setBlocked(nil)
             } catch {
                 failure = error
@@ -63,11 +72,10 @@ final class UsageFetcher {
         } else if let failure {
             if Self.isCancellation(failure) { return }
             failures += 1
+            successRun = 0
             if case UsageError.rateLimited(let after) = failure {
                 rateLimitStreak += 1
                 retryAfter = after ?? 0
-            } else {
-                rateLimitStreak = 0
             }
             var message = Self.message(for: failure)
             if case UsageError.rateLimited = failure {

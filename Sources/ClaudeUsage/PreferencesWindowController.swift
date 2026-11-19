@@ -35,7 +35,7 @@ final class PreferencesWindowController: NSWindowController {
 
     private func build() {
         intervalPopup.addItems(withTitles: intervals.map(\.0))
-        intervalPopup.selectItem(at: intervals.firstIndex { $0.1 == config.refreshInterval } ?? 1)
+        intervalPopup.selectItem(at: intervals.firstIndex { $0.1 == config.refreshInterval } ?? 2)
         warnPopup.addItems(withTitles: warns.map { "\(Int($0))%" })
         warnPopup.selectItem(at: warns.firstIndex(of: config.warnThreshold) ?? 1)
         criticalPopup.addItems(withTitles: criticals.map { "\(Int($0))%" })
