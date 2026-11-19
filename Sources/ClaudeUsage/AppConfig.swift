@@ -10,7 +10,7 @@ final class AppConfig {
     }
 
     var refreshInterval: TimeInterval {
-        get { let v = defaults.double(forKey: "refreshInterval"); return v > 0 ? v : 120 }
+        get { let v = defaults.double(forKey: "refreshInterval"); return v > 0 ? v : 300 }
         set { defaults.set(newValue, forKey: "refreshInterval") }
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum UsageError: Error, Equatable {
     case unauthorized
@@ -50,6 +51,7 @@ protocol LimitsFetching {
 struct UsageClient: LimitsFetching {
     static let url = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     var transport: HTTPTransport = URLSessionTransport()
+    private static let log = Logger(subsystem: "com.philipp.ClaudeUsage", category: "usage")
 
     func fetchLimits(accessToken: String) async throws -> Limits {
         var req = URLRequest(url: Self.url)
@@ -57,6 +59,8 @@ struct UsageClient: LimitsFetching {
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         let result = try await transport.send(req)
+        let retry = result.retryAfter.map { String($0) } ?? "none"
+        Self.log.info("usage response status=\(result.status) retryAfter=\(retry)")
         switch result.status {
         case 200..<300: return try Self.decode(result.data)
         case 401, 403: throw UsageError.unauthorized
